@@ -11,36 +11,95 @@
             user-select:none;
             touch-action: manipulation;
         }
-        body {font-family: system-ui; padding:8px; margin:0; background:#f4f4f4;}
-        .container {max-width:600px; margin:0 auto;}
-        .cfg {margin-bottom:10px;}
-        .action-bar {margin:10px 0; display:flex; gap:6px; flex-wrap:wrap;}
-        .action-bar button {padding:8px; flex:1; font-size:15px;}
-        .hidden {display:none;}
-        .tip {font-size:14px; color:#333; margin:6px 0;}
-        .cfg input {width:70px; padding:4px; font-size:16px}
-        button {padding:6px 10px; font-size:16px; margin:2px; cursor:pointer}
-        table {border-collapse: collapse; margin: 10px 0; width:100%;}
+        body {
+            font-family: system-ui;
+            padding: 8px;
+            margin: 0;
+            background: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .cfg {
+            margin-bottom: 10px;
+        }
+        .action-bar {
+            margin: 10px 0;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .action-bar button {
+            padding: 8px;
+            flex: 1;
+            font-size: 15px;
+        }
+        .hidden {
+            display: none;
+        }
+        .tip {
+            font-size: 14px;
+            color: #333;
+            margin: 6px 0;
+        }
+        .cfg input {
+            width: 70px;
+            padding: 4px;
+            font-size: 16px;
+        }
+        button {
+            padding: 6px 10px;
+            font-size: 16px;
+            margin: 2px;
+            cursor: pointer;
+        }
+        table {
+            border-collapse: collapse;
+            margin: 10px 0;
+            width: 100%;
+        }
         td {
-            width:38px;height:38px;
-            border:1px solid #999;
-            text-align:center;
-            font-size:14px;
-            background:#eee;
-            transition: all 0.2s;
+            width: 38px;
+            height: 38px;
+            border: 1px solid #999;
+            text-align: center;
+            font-size: 14px;
+            background: #eee;
+            transition: all 0.15s ease;
+            position: relative;
+            z-index: 0;
         }
-        /* 选中格子高亮，提升辨识度 */
+
+        /* 概率格子基础样式 */
+        td.prob {
+            background: #fff2aa;
+            font-weight: bold;
+            font-size: 13px;
+            color: #333;
+        }
+
+        /* 选中格子：强蓝色外框 + 高亮底色 + 轻微放大 */
         td.selected {
-            outline:4px solid #0066ff;
-            outline-offset:-3px;
-            transform: scale(1.08);
-            box-shadow: 0 0 8px #0066ff;
-            z-index:2;
+            outline: 4px solid #0066ff;
+            outline-offset: -3px;
+            background: #cce4ff !important;
+            transform: scale(1.12);
+            box-shadow: 0 0 10px #0066ff;
+            z-index: 10;
         }
-        td.num {background:#fff;}
-        td.diamond {background:#73d073; color:#000;}
-        td.empty {background:#ff7777; color:#fff;}
-        td.prob {background:#fff2aa; font-weight:bold; font-size:13px;}
+
+        td.num {
+            background: #fff;
+        }
+        td.diamond {
+            background: #73d073;
+            color: #000;
+        }
+        td.empty {
+            background: #ff7777;
+            color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -179,28 +238,34 @@ function render(){
             const td = document.createElement('td');
             td.dataset.y = y;
             td.dataset.x = x;
-            if(y === selectedY && x === selectedX){
-                td.classList.add("selected");
-            }
+
             const cell = grid[y][x];
+
             if(cell.type===1){
                 td.className = 'diamond';
-                td.textContent='💎';
+                td.textContent = '💎';
             }else if(cell.type===2){
                 td.className = 'empty';
-                td.textContent='✕';
+                td.textContent = '✕';
             }else if(cell.val>0){
-                td.className='num';
-                td.textContent=cell.val;
+                td.className = 'num';
+                td.textContent = cell.val;
             }else if(cell.prob!==null){
-                td.className='prob';
-                td.textContent=cell.prob.toFixed(2);
+                td.className = 'prob';
+                td.textContent = cell.prob.toFixed(2);
             }
+
+            // 选中格子加蓝色高亮
+            if(y === selectedY && x === selectedX){
+                td.classList.add('selected');
+            }
+
             td.onclick = function(){
                 const cy = Number(this.dataset.y);
                 const cx = Number(this.dataset.x);
                 selectCell(cy, cx);
             }
+
             tr.appendChild(td);
         }
         tb.appendChild(tr);
