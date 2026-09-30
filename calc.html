@@ -38,11 +38,6 @@
         margin-bottom: 6px;
     }
 
-    .cfg button,
-    .action-bar button {
-        font-family: inherit;
-    }
-
     .preset-buttons {
         display: flex;
         gap: 4px;
@@ -126,40 +121,36 @@
     td {
         border: 1px solid #999;
         text-align: center;
-        font-size: 12px;
+        font-weight: bold;
         background: #eee;
         transition: all 0.15s ease;
         position: relative;
         z-index: 0;
-        padding: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        padding:0;
+        overflow:hidden;
     }
-
-    /* 小屏进一步压缩字体 */
-    @media (max-width: 360px) {
-        td {
-            font-size: 11px;
-        }
+    /* 数字格子字号正常；概率格子单独缩小字体 */
+    td.num {
+        font-size:14px;
+        background: #fff;
+    }
+    td.prob-low, td.prob-mid, td.prob-high {
+        font-size: 9px; /* 概率字体缩小 */
     }
 
     /* 概率格子底色分级 */
     td.prob-low {
         background: #ffd8d8;
-        font-weight: bold;
         color: #222;
     }
 
     td.prob-mid {
         background: #fff2aa;
-        font-weight: bold;
         color: #222;
     }
 
     td.prob-high {
         background: #b8efb8;
-        font-weight: bold;
         color: #222;
     }
 
@@ -173,10 +164,6 @@
         z-index: 10;
     }
 
-    td.num {
-        background: #fff;
-    }
-
     /* 冲突数字格子 红色底色 */
     td.num.conflict {
         background-color: #ff8888 !important;
@@ -186,11 +173,13 @@
     td.diamond {
         background: #73d073;
         color: #000;
+        font-size:14px;
     }
 
     td.empty {
         background: #ff7777;
         color: #fff;
+        font-size:14px;
     }
 </style>
 </head>
@@ -237,9 +226,8 @@ let grid = [];
 let selectedY = -1;
 let selectedX = -1;
 let conflictCellList = [];
-let hasNumberInput = false; // 是否已填入过数字
+let hasNumberInput = false;
 
-// 初始化棋盘
 function initBoard(r = +document.getElementById('rows').value, c = +document.getElementById('cols').value, td = +document.getElementById('totalDiam').value) {
     R = r;
     C = c;
@@ -248,7 +236,7 @@ function initBoard(r = +document.getElementById('rows').value, c = +document.get
     conflictCellList = [];
     selectedY = -1;
     selectedX = -1;
-    hasNumberInput = false; // 新建棋盘后重置为隐藏概率状态
+    hasNumberInput = false;
 
     for (let y = 0; y < R; y++) {
         let row = [];
@@ -260,16 +248,14 @@ function initBoard(r = +document.getElementById('rows').value, c = +document.get
 
     hideOperatePanel();
     render();
-    // 新建棋盘后不自动计算概率，等待填入数字
 }
 
-// 清空棋盘
 function clearBoard() {
     grid = [];
     conflictCellList = [];
     selectedY = -1;
     selectedX = -1;
-    hasNumberInput = false; // 清空后回到隐藏概率状态
+    hasNumberInput = false;
 
     for (let y = 0; y < R; y++) {
         let row = [];
@@ -281,7 +267,6 @@ function clearBoard() {
 
     hideOperatePanel();
     render();
-    // 清空后不显示概率
 }
 
 function showOperatePanel() {
@@ -292,7 +277,6 @@ function hideOperatePanel() {
     document.getElementById("operatePanel").classList.add("hidden");
 }
 
-// 选中格子
 function selectCell(y, x) {
     selectedY = y;
     selectedX = x;
@@ -300,7 +284,6 @@ function selectCell(y, x) {
     render();
 }
 
-// 获取一个格子的8邻域
 function getNeighbors(y, x) {
     let ns = [];
     for (let dy = -1; dy <= 1; dy++) {
@@ -314,7 +297,6 @@ function getNeighbors(y, x) {
     return ns;
 }
 
-// 统计全局已标记钻石数量
 function countMarkedDiamond() {
     let cnt = 0;
     for (let y = 0; y < R; y++) {
@@ -325,7 +307,6 @@ function countMarkedDiamond() {
     return cnt;
 }
 
-// 全盘冲突检测
 function checkAllBoardConflict() {
     let conflictList = [];
     for (let y = 0; y < R; y++) {
@@ -348,7 +329,6 @@ function checkAllBoardConflict() {
     return conflictList;
 }
 
-// 填入数字
 function inputNumber() {
     const num = prompt("输入相邻钻石数量：", "");
     if (num === null) return;
@@ -380,13 +360,11 @@ function inputNumber() {
     grid[selectedY][selectedX].type = 0;
     grid[selectedY][selectedX].prob = null;
 
-    // 首次填入数字后，开始显示概率
     hasNumberInput = true;
     render();
     calcProb();
 }
 
-// 标记钻石
 function setDiamond() {
     let tempCount = countMarkedDiamond() + 1;
     if (tempCount > totalDiamonds) {
@@ -400,7 +378,6 @@ function setDiamond() {
     if (hasNumberInput) calcProb();
 }
 
-// 标记排除
 function setExclude() {
     grid[selectedY][selectedX].type = 2;
     grid[selectedY][selectedX].val = 0;
@@ -409,7 +386,6 @@ function setExclude() {
     if (hasNumberInput) calcProb();
 }
 
-// 清除当前格子
 function clearCell() {
     grid[selectedY][selectedX].type = 0;
     grid[selectedY][selectedX].val = 0;
@@ -422,11 +398,10 @@ function render() {
     const tb = document.getElementById('board');
     tb.innerHTML = '';
 
-    // 根据格子数量动态计算单元格尺寸，适配手机宽度
-    const maxCells = Math.max(R, C);
     const screenWidth = Math.min(window.innerWidth - 12, 600);
+    const maxCells = Math.max(R, C);
     let cellSize = Math.floor(screenWidth / maxCells);
-    cellSize = Math.max(28, Math.min(44, cellSize));
+    cellSize = Math.max(26, Math.min(40, cellSize));
 
     for (let y = 0; y < R; y++) {
         const tr = document.createElement('tr');
@@ -436,7 +411,7 @@ function render() {
             td.dataset.x = x;
             td.style.width = cellSize + 'px';
             td.style.height = cellSize + 'px';
-            td.style.lineHeight = (cellSize - 2) + 'px';
+            td.style.lineHeight = cellSize + 'px';
 
             const cell = grid[y][x];
             let isConflictCell = conflictCellList.some(item => item.y === y && item.x === x);
@@ -451,7 +426,6 @@ function render() {
                 td.className = isConflictCell ? 'num conflict' : 'num';
                 td.textContent = cell.val;
             } else if (cell.prob !== null && hasNumberInput) {
-                // 只有填入过数字后才显示概率
                 const percent = cell.prob * 100;
                 td.textContent = percent.toFixed(1) + '%';
                 if (percent > 50) {
@@ -479,7 +453,6 @@ function render() {
     }
 }
 
-// 概率计算
 function calcProb() {
     let markedDiamonds = countMarkedDiamond();
     const remainDiam = totalDiamonds - markedDiamonds;
@@ -543,7 +516,6 @@ function calcProb() {
     render();
 }
 
-// 窗口尺寸变化时重新适配棋盘
 window.addEventListener('resize', function () {
     if (R && C) render();
 });
