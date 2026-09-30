@@ -20,7 +20,7 @@
         .tip {font-size:14px; color:#333; margin:6px 0;}
         .cfg input {width:70px; padding:4px; font-size:16px}
         button {padding:6px 10px; font-size:16px; margin:2px; cursor:pointer}
-        table {border-collapse: collapse; margin: 10px 0;}
+        table {border-collapse: collapse; margin: 10px 0; width:100%;}
         td {
             width:38px;height:38px;
             border:1px solid #999;
@@ -69,15 +69,13 @@
 <script>
 let R,C,totalDiamonds;
 let grid = [];
-//保存当前选中格子坐标
 let selectedY = -1;
 let selectedX = -1;
 
 // 初始化棋盘
 function initBoard(r=+document.getElementById('rows').value, c=+document.getElementById('cols').value, td=+document.getElementById('totalDiam').value){
     R=r;C=c;totalDiamonds=td;
-    // type:0空白,1=钻石💎,2=排除✕
-    grid = Array(R).fill().map(()=> Array(C).fill({type:0,val:0,prob:null}));
+    grid = Array.from({length:R}, ()=> Array(C).fill({type:0,val:0,prob:null}));
     selectedY=-1;selectedX=-1;
     hideOperatePanel();
     render();
@@ -85,7 +83,7 @@ function initBoard(r=+document.getElementById('rows').value, c=+document.getElem
 
 // 清空棋盘
 function clearBoard(){
-    grid = Array(R).fill().map(()=> Array(C).fill({type:0,val:0,prob:null}));
+    grid = Array.from({length:R}, ()=> Array(C).fill({type:0,val:0,prob:null}));
     selectedY=-1;selectedX=-1;
     hideOperatePanel();
     render();
@@ -103,6 +101,7 @@ function selectCell(y,x){
     selectedY = y;
     selectedX = x;
     showOperatePanel();
+    render();
 }
 
 //填入数字
@@ -158,32 +157,34 @@ function render(){
     for(let y=0;y<R;y++){
         const tr = document.createElement('tr');
         for(let x=0;x<C;x++){
-            (function(cellY, cellX){
-                const td = document.createElement('td');
-                //选中格子增加蓝色外框高亮
-                if(cellY === selectedY && cellX === selectedX){
-                    td.classList.add("selected");
-                }
-                const cell = grid[cellY][cellX];
-                if(cell.type===1){
-                    td.className = 'diamond';
-                    td.textContent='💎';
-                }else if(cell.type===2){
-                    td.className = 'empty';
-                    td.textContent='✕';
-                }else if(cell.val>0){
-                    td.className='num';
-                    td.textContent=cell.val;
-                }else if(cell.prob!==null){
-                    td.className='prob';
-                    td.textContent=cell.prob.toFixed(2);
-                }
-                //点击选中格子
-                td.onclick = ()=>{
-                    selectCell(cellY, cellX);
-                }
-                tr.appendChild(td);
-            })(y,x);
+            const td = document.createElement('td');
+            // 存储坐标在元素属性，彻底不用闭包
+            td.dataset.y = y;
+            td.dataset.x = x;
+            if(y === selectedY && x === selectedX){
+                td.classList.add("selected");
+            }
+            const cell = grid[y][x];
+            if(cell.type===1){
+                td.className = 'diamond';
+                td.textContent='💎';
+            }else if(cell.type===2){
+                td.className = 'empty';
+                td.textContent='✕';
+            }else if(cell.val>0){
+                td.className='num';
+                td.textContent=cell.val;
+            }else if(cell.prob!==null){
+                td.className='prob';
+                td.textContent=cell.prob.toFixed(2);
+            }
+            //点击事件读取data里的坐标
+            td.onclick = function(){
+                const cy = Number(this.dataset.y);
+                const cx = Number(this.dataset.x);
+                selectCell(cy, cx);
+            }
+            tr.appendChild(td);
         }
         tb.appendChild(tr);
     }
