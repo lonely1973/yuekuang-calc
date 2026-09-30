@@ -27,15 +27,20 @@
             text-align:center;
             font-size:14px;
             background:#eee;
+            transition: all 0.2s;
         }
+        /* 选中格子高亮，提升辨识度 */
         td.selected {
-            outline:3px solid #0066ff;
-            outline-offset:-2px;
+            outline:4px solid #0066ff;
+            outline-offset:-3px;
+            transform: scale(1.08);
+            box-shadow: 0 0 8px #0066ff;
+            z-index:2;
         }
         td.num {background:#fff;}
         td.diamond {background:#73d073; color:#000;}
         td.empty {background:#ff7777; color:#fff;}
-        td.prob {background:#fff2aa;}
+        td.prob {background:#fff2aa; font-weight:bold; font-size:13px;}
     </style>
 </head>
 <body>
