@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>月矿远征钻石计算器</title>
+<style>
+*{box-sizing:border-box;font-family:system-ui, sans-serif;margin:0;padding:0;}
+body{padding:10px;max-width:100vw;overflow-x:hidden;}
+.ctrl{margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+input{width:60px;padding:4px;font-size:14px}
+button{padding:4px 6px;font-size:13px;cursor:pointer;touch-action:manipulation;}
+#board{display:grid;gap:1px;margin:10px auto;justify-content:center;}
+.cell{
+  width:min(9vw,36px);
+  height:min(9vw,36px);
+  background:#4298e8;border:2px outset #73b6f5;
+  display:grid;place-items:center;
+  font-weight:bold;font-size:min(3.2vw,12px);color:#000;
+  touch-action:none;
+}
+.cell.opened{border:1px solid #222;background:#e8f4ff;}
+.cell.diamond{background:#ffd700;color:#664400;}
+.info{margin:8px 0;font-size:14px;line-height:1.4}
+.prob-info{margin:6px 0;color:#333;font-size:13px}
+.legend{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;font-size:13px;align-items:center}
+.legend>div{width:18px;height:18px;border:1px solid #333}
+</style>
+</head>
+<body>
+<div class="ctrl">
+  <span>行:</span><input id="rows" value="10">
+  <span>列:</span><input id="cols" value="10">
+  <span>总钻:</span><input id="totalMine" value="30">
+  <br/>
+  <button onclick="set8()">8×8(20钻)</button>
+  <button onclick="set10()">10×10(30钻)</button>
+  <button onclick="set12()">12×12(45钻)</button>
+  <button onclick="initBoard()">生成棋盘</button>
+  <button onclick="calcProb()">计算</button>
+  <button onclick="resetAll()">重置</button>
+</div>
+<div class="info">
+单击格子：输入周边钻石数量｜长按格子：标记💎<br>
+剩余待找钻石：<span id="mineCount">30</span>
+</div>
+<div class="prob-info">点击【计算】：🔴红=确定无钻(可点开)，🟢绿=必定钻石💎，灰色=不确定</div>
+<div class="legend">
+  <div style="background:#ff6666"></div>0.0 安全
+  <div style="background:#88ee88"></div>1.0 钻石
+  <div style="background:#cccccc"></div>不确定
+</div>
+<div id="board"></div>
+
+<script>
+let R=10,C=10,totalMine=30;
+let grid=[];
+const boardEl=document.getElementById("board");
+const mineCountEl=document.getElementById("mineCount");
+
+function set8(){document.getElementById("rows").value=8;document.getElementById("cols").value=8;document.getElementById("totalMine").value=20;}
+function set10(){document.getElementById("rows").value=10;document.getElementById("cols").value=10;document.getElementById("totalMine").value=30;}
+function set12(){document.getElementById("rows").value=12;document.getElementById("cols").value=12;document.getElementById("totalMine").value=45;}
+
+function initBoard(){
+  R=+document.getElementById("rows").value;
+  C=+document.getElementById("cols").value;
+  totalMine=+document.getElementById("totalMine").value;
+  grid=Array(R).fill().map(()=>Array(C).fill({state:0,val:null,prob:null}));
+  render();updateMineLeft();
+}
+function resetAll(){initBoard();}
+function updateMineLeft(){
+  let marked=grid.flat().filter(c=>c.state===2).length;
+  mineCountEl.textContent=totalMine-marked;
+}
+function getNei(r,c){
+  let arr=[];
+  for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+    if(dr===0&&dc===0)continue;
+    let nr=r+dr,nc=c+dc;
+    if(nr>=0&&nr<R&&nc>=0&&nc<C)arr.push([nr,nc]);
+  }
+  return arr;
+}
+function render(){
+  boardEl.innerHTML="";
+  boardEl.style.gridTemplateColumns=`repeat(${C}, min(9vw,36px))`;
+  for(let r=0;r<R;r++){
+    for(let c=0;c<C;c++){
+      const cell=grid[r][c];
+      const div=document.createElement("div");
+      div.className="cell";
+      if(cell.state===1){div.classList.add("opened");div.textContent=cell.val??"";}
+      if(cell.state===2){div.classList.add("diamond");div.textContent="💎";}
+      if(cell.state===0){
+        if(cell.prob!==null){
+          if(cell.prob<=0.0001)div.style.background="#ff6666";
+          else if(cell.prob>=0.9999)div.style.background="#88ee88";
+          else div.style.background="#cccccc";
+          div.textContent=cell.prob.toFixed(2);
+        }
+      }
+      div.onclick=()=>{
+        if(cell.state!==0)return;
+        let s=prompt("周边钻石数量：","0");
+        let v=parseInt(s);
+        if(!isNaN(v)&&v>=0&&v<=8){
+          grid[r][c]={state:1,val:v,prob:null};
+          render();updateMineLeft();
+        }
+      };
+      let timer=null;
+      div.addEventListener("touchstart",()=>timer=setTimeout(()=>{
+        if(cell.state===0){
+          cell.state=cell.state===2?0:2;
+          render();updateMineLeft();
+        }
+      },600));
+      div.addEventListener("touchend",()=>clearTimeout(timer));
+      boardEl.appendChild(div);
+    }
+  }
+}
+function calcProb(){
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++)grid[r][c].prob=null;
+  let unknown=[];
+  let knownConstraints=[];
+  let marked=0;
+  for(let r=0;r<R;r++){
+    for(let c=0;c<C;c++){
+      const g=grid[r][c];
+      if(g.state===2)marked++;
+      if(g.state===1){
+        const nei=getNei(r,c);
+        let unknownNei=nei.filter(([nr,nc])=>grid[nr][nc].state===0);
+        let markNei=nei.filter(([nr,nc])=>grid[nr][nc].state===2).length;
+        let req=g.val-markNei;
+        if(unknownNei.length>0)knownConstraints.push({cells:unknownNei,need:req});
+      }else if(g.state===0)unknown.push([r,c]);
+    }
+  }
+  const maxComb=16;
+  let totalValid=0;
+  let sumMine=Array(unknown.length).fill(0);
+  function dfs(idx, placed){
+    if(totalValid>5000)return;
+    if(idx===unknown.length){
+      for(const cons of knownConstraints){
+        let cnt=0;
+        for(const [rr,cc] of cons.cells){
+          let i=unknown.findIndex(([a,b])=>a===rr&&b===cc);
+          if(i>=0&&placed[i])cnt++;
+        }
+        if(cnt!==cons.need)return;
+      }
+      totalValid++;
+      for(let i=0;i<unknown.length;i++)if(placed[i])sumMine[i]++;
+      return;
+    }
+    let rem=unknown.length-idx;
+    if(placed.reduce((a,b)=>a+b,0)>totalMine-marked)return;
+    if(rem<=maxComb){
+      placed[idx]=0;dfs(idx+1,placed);
+      placed[idx]=1;dfs(idx+1,placed);
+    }else{
+      placed[idx]=0;dfs(idx+1,placed);
+    }
+  }
+  dfs(0,Array(unknown.length).fill(0));
+  if(totalValid>0){
+    for(let i=0;i<unknown.length;i++){
+      const [rr,cc]=unknown[i];
+      grid[rr][cc].prob=sumMine[i]/totalValid;
+    }
+  }
+  render();
+}
+initBoard();
+</script>
+</body>
+</html>
