@@ -56,7 +56,7 @@
         </div>
     </div>
 
-    <div class="tip" id="tipInfo">点击棋盘任意格子，然后使用下方按钮操作</div>
+    <div class="tip" id="tipInfo">点击棋盘任意格子，然后使用下方按钮操作，填完信息点【计算概率】持续推演</div>
     <div class="action-bar hidden" id="operatePanel">
         <button onclick="inputNumber()">填入数字</button>
         <button onclick="setDiamond()">💎绿色钻石</button>
@@ -72,7 +72,7 @@ let grid = [];
 let selectedY = -1;
 let selectedX = -1;
 
-// 初始化棋盘【修复重点：每一格都新建独立对象，杜绝引用共享】
+// 初始化棋盘：双层循环创建独立对象，彻底解决引用共享bug
 function initBoard(r=+document.getElementById('rows').value, c=+document.getElementById('cols').value, td=+document.getElementById('totalDiam').value){
     R=r;C=c;totalDiamonds=td;
     grid = [];
@@ -202,8 +202,9 @@ function render(){
     }
 }
 
-//带数字约束概率计算
+//【持续迭代概率计算函数】每次点击，全盘重新推算
 function calcProb(){
+    //1.统计已经手动标记的钻石
     let markedDiamonds = 0;
     for(let y=0;y<R;y++){
         for(let x=0;x<C;x++){
@@ -212,6 +213,7 @@ function calcProb(){
     }
     const remainDiam = totalDiamonds - markedDiamonds;
 
+    //2.收集所有未知空白格子，清空旧概率
     let unknownCells = [];
     for(let y=0;y<R;y++){
         for(let x=0;x<C;x++){
@@ -226,12 +228,13 @@ function calcProb(){
     }
 
     if(unknownCells.length <=0) {render();return;}
+    //基础全局平均概率
     let baseP = remainDiam / unknownCells.length;
     for(let pos of unknownCells){
         grid[pos.y][pos.x].prob = baseP;
     }
 
-    //数字约束修正概率
+    //3.遍历所有数字格，根据数字约束，迭代修正周围格子概率（核心连续推算逻辑）
     for(let y=0;y<R;y++){
         for(let x=0;x<C;x++){
             const cell = grid[y][x];
@@ -250,8 +253,14 @@ function calcProb(){
             const p = needDiam / unknownNear.length;
             for(let n of unknownNear){
                 grid[n.y][n.x].prob = p;
-                if(p>=1) grid[n.y][n.x].type=1;
-                else if(p<=0) grid[n.y][n.x].type=2;
+                // 强约束：概率1自动标记钻石；概率0自动标记排除
+                if(p>=1){
+                    grid[n.y][n.x].type=1;
+                    grid[n.y][n.x].prob=null;
+                }else if(p<=0){
+                    grid[n.y][n.x].type=2;
+                    grid[n.y][n.x].prob=null;
+                }
             }
         }
     }
