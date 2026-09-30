@@ -72,10 +72,17 @@ let grid = [];
 let selectedY = -1;
 let selectedX = -1;
 
-// 初始化棋盘
+// 初始化棋盘【修复重点：每一格都新建独立对象，杜绝引用共享】
 function initBoard(r=+document.getElementById('rows').value, c=+document.getElementById('cols').value, td=+document.getElementById('totalDiam').value){
     R=r;C=c;totalDiamonds=td;
-    grid = Array.from({length:R}, ()=> Array(C).fill({type:0,val:0,prob:null}));
+    grid = [];
+    for(let y=0;y<R;y++){
+        let row = [];
+        for(let x=0;x<C;x++){
+            row.push({type:0,val:0,prob:null});
+        }
+        grid.push(row);
+    }
     selectedY=-1;selectedX=-1;
     hideOperatePanel();
     render();
@@ -83,7 +90,14 @@ function initBoard(r=+document.getElementById('rows').value, c=+document.getElem
 
 // 清空棋盘
 function clearBoard(){
-    grid = Array.from({length:R}, ()=> Array(C).fill({type:0,val:0,prob:null}));
+    grid = [];
+    for(let y=0;y<R;y++){
+        let row = [];
+        for(let x=0;x<C;x++){
+            row.push({type:0,val:0,prob:null});
+        }
+        grid.push(row);
+    }
     selectedY=-1;selectedX=-1;
     hideOperatePanel();
     render();
@@ -158,7 +172,6 @@ function render(){
         const tr = document.createElement('tr');
         for(let x=0;x<C;x++){
             const td = document.createElement('td');
-            // 存储坐标在元素属性，彻底不用闭包
             td.dataset.y = y;
             td.dataset.x = x;
             if(y === selectedY && x === selectedX){
@@ -178,7 +191,6 @@ function render(){
                 td.className='prob';
                 td.textContent=cell.prob.toFixed(2);
             }
-            //点击事件读取data里的坐标
             td.onclick = function(){
                 const cy = Number(this.dataset.y);
                 const cx = Number(this.dataset.x);
