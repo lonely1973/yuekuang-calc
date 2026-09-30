@@ -14,6 +14,10 @@
         body {font-family: system-ui; padding:8px; margin:0; background:#f4f4f4;}
         .container {max-width:600px; margin:0 auto;}
         .cfg {margin-bottom:10px;}
+        .action-bar {margin:10px 0; display:flex; gap:6px; flex-wrap:wrap;}
+        .action-bar button {padding:8px; flex:1; font-size:15px;}
+        .hidden {display:none;}
+        .tip {font-size:14px; color:#333; margin:6px 0;}
         .cfg input {width:70px; padding:4px; font-size:16px}
         button {padding:6px 10px; font-size:16px; margin:2px; cursor:pointer}
         table {border-collapse: collapse; margin: 10px 0;}
@@ -23,6 +27,10 @@
             text-align:center;
             font-size:14px;
             background:#eee;
+        }
+        td.selected {
+            outline:3px solid #0066ff;
+            outline-offset:-2px;
         }
         td.num {background:#fff;}
         td.diamond {background:#73d073; color:#000;}
@@ -47,42 +55,87 @@
             <button onclick="clearBoard()">🗑️清空棋盘</button>
         </div>
     </div>
-    <div>
-        操作说明：
-        <br>单击格子：输入相邻钻石数量；
-        <br>长按格子：标记💎钻石；再次长按取消标记；
-        <br>双击格子：标记✕无钻石；再次双击取消标记；
-        <br>红色✕=确定无钻，绿色💎=确定钻石，黄色=概率值
-        <br>✅填完全部已知数字后，点【计算概率】按钮计算
+
+    <div class="tip" id="tipInfo">点击棋盘任意格子，然后使用下方按钮操作</div>
+    <div class="action-bar hidden" id="operatePanel">
+        <button onclick="inputNumber()">填入数字</button>
+        <button onclick="setDiamond()">💎绿色钻石</button>
+        <button onclick="setExclude()">✕红色排除</button>
+        <button onclick="clearCell()">清除本格</button>
     </div>
+
     <table id="board"></table>
 </div>
 <script>
 let R,C,totalDiamonds;
 let grid = [];
-
-// 全局触摸锁：只允许处理最先按下的单元格
-let globalTouch = {
-    active: false,
-    targetY: -1,
-    targetX: -1,
-    timer: null,
-    startX:0,
-    startY:0,
-    moveThreshold:5
-};
+//保存当前选中格子坐标
+let selectedY = -1;
+let selectedX = -1;
 
 // 初始化棋盘
 function initBoard(r=+document.getElementById('rows').value, c=+document.getElementById('cols').value, td=+document.getElementById('totalDiam').value){
     R=r;C=c;totalDiamonds=td;
-    // type:0空白,1=钻石💎,2=无钻石✕
+    // type:0空白,1=钻石💎,2=排除✕
     grid = Array(R).fill().map(()=> Array(C).fill({type:0,val:0,prob:null}));
+    selectedY=-1;selectedX=-1;
+    hideOperatePanel();
     render();
 }
 
-// 清空棋盘，保留当前行列和钻石总数
+// 清空棋盘
 function clearBoard(){
     grid = Array(R).fill().map(()=> Array(C).fill({type:0,val:0,prob:null}));
+    selectedY=-1;selectedX=-1;
+    hideOperatePanel();
+    render();
+}
+
+function showOperatePanel(){
+    document.getElementById("operatePanel").classList.remove("hidden");
+}
+function hideOperatePanel(){
+    document.getElementById("operatePanel").classList.add("hidden");
+}
+
+// 选中格子
+function selectCell(y,x){
+    selectedY = y;
+    selectedX = x;
+    showOperatePanel();
+}
+
+//填入数字
+function inputNumber(){
+    const num = prompt("输入相邻钻石数量：","");
+    if(num === null) return;
+    const n = parseInt(num);
+    if(!isNaN(n)){
+        grid[selectedY][selectedX].val = n;
+        grid[selectedY][selectedX].type = 0;
+        grid[selectedY][selectedX].prob = null;
+    }
+    render();
+}
+//标记钻石
+function setDiamond(){
+    grid[selectedY][selectedX].type = 1;
+    grid[selectedY][selectedX].val = 0;
+    grid[selectedY][selectedX].prob = null;
+    render();
+}
+//标记排除
+function setExclude(){
+    grid[selectedY][selectedX].type = 2;
+    grid[selectedY][selectedX].val = 0;
+    grid[selectedY][selectedX].prob = null;
+    render();
+}
+//清除当前格子
+function clearCell(){
+    grid[selectedY][selectedX].type = 0;
+    grid[selectedY][selectedX].val = 0;
+    grid[selectedY][selectedX].prob = null;
     render();
 }
 
@@ -105,9 +158,12 @@ function render(){
     for(let y=0;y<R;y++){
         const tr = document.createElement('tr');
         for(let x=0;x<C;x++){
-            // 修复闭包捕获BUG，锁定当前循环的y,x
             (function(cellY, cellX){
                 const td = document.createElement('td');
+                //选中格子增加蓝色外框高亮
+                if(cellY === selectedY && cellX === selectedX){
+                    td.classList.add("selected");
+                }
                 const cell = grid[cellY][cellX];
                 if(cell.type===1){
                     td.className = 'diamond';
@@ -122,106 +178,15 @@ function render(){
                     td.className='prob';
                     td.textContent=cell.prob.toFixed(2);
                 }
-
-                // 单击输入数字
+                //点击选中格子
                 td.onclick = ()=>{
-                    if(globalTouch.active) return;
-                    if(grid[cellY][cellX].type!==0) return;
-                    let v = prompt('输入相邻钻石数量','0');
-                    v = parseInt(v);
-                    if(!isNaN(v)) {
-                        grid[cellY][cellX].val = v;
-                        grid[cellY][cellX].prob = null;
-                    }
-                    render();
-                }
-
-                //双击标记【无钻石】红色叉号
-                td.ondblclick = ()=>{
-                    if(globalTouch.active) return;
-                    const cell = grid[cellY][cellX];
-                    if(cell.type === 2){
-                        cell.type = 0;
-                    }else{
-                        cell.type = 2;
-                    }
-                    cell.prob = null;
-                    render();
-                }
-
-                // 触摸按下
-                td.addEventListener('touchstart',(e)=>{
-                    if(globalTouch.active) return;
-                    globalTouch.active = true;
-                    globalTouch.targetY = cellY;
-                    globalTouch.targetX = cellX;
-                    const touch = e.touches[0];
-                    globalTouch.startX = touch.clientX;
-                    globalTouch.startY = touch.clientY;
-                    // 启动长按计时器
-                    globalTouch.timer = setTimeout(()=>{
-                        toggleDiamond(cellY, cellX);
-                    },500);
-                },{passive:true});
-
-                // 手指移动
-                td.addEventListener('touchmove',(e)=>{
-                    if(!globalTouch.active) return;
-                    if(globalTouch.targetY !== cellY || globalTouch.targetX !== cellX) return;
-                    const touch = e.touches[0];
-                    const dx = touch.clientX - globalTouch.startX;
-                    const dy = touch.clientY - globalTouch.startY;
-                    const dist = Math.sqrt(dx*dx + dy*dy);
-                    if(dist > globalTouch.moveThreshold){
-                        clearTimeout(globalTouch.timer);
-                        globalTouch.timer = null;
-                    }
-                },{passive:true});
-
-                // 手指抬起
-                td.addEventListener('touchend',()=>{
-                    if(globalTouch.targetY === cellY && globalTouch.targetX === cellX){
-                        clearTimeout(globalTouch.timer);
-                        resetGlobalTouch();
-                    }
-                });
-                td.addEventListener('touchcancel',()=>{
-                    if(globalTouch.targetY === cellY && globalTouch.targetX === cellX){
-                        clearTimeout(globalTouch.timer);
-                        resetGlobalTouch();
-                    }
-                });
-
-                //电脑右键标记钻石
-                td.oncontextmenu = (e)=>{
-                    e.preventDefault();
-                    toggleDiamond(cellY, cellX);
+                    selectCell(cellY, cellX);
                 }
                 tr.appendChild(td);
             })(y,x);
         }
         tb.appendChild(tr);
     }
-}
-
-//重置全局触摸锁
-function resetGlobalTouch(){
-    globalTouch.active = false;
-    globalTouch.targetY = -1;
-    globalTouch.targetX = -1;
-    globalTouch.timer = null;
-}
-
-//切换钻石标记
-function toggleDiamond(y,x){
-    const cell = grid[y][x];
-    if(cell.type === 1){
-        cell.type = 0;
-    }else if(cell.type===0){
-        cell.type =1;
-    }
-    cell.prob=null;
-    render();
 }
 
 //带数字约束概率计算
