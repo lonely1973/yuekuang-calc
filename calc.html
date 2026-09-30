@@ -92,11 +92,6 @@
         td.num {
             background: #fff;
         }
-        /* 冲突数字格子 红色底色 */
-        td.num.conflict{
-            background-color: #ff8888 !important;
-            color:#000;
-        }
         td.diamond {
             background: #73d073;
             color: #000;
@@ -125,7 +120,7 @@
         </div>
     </div>
 
-    <div class="tip" id="tipInfo">点击棋盘任意格子，然后使用下方按钮操作，修改棋盘后自动推演概率，也可手动点计算概率重算</div>
+    <div class="tip" id="tipInfo">点击棋盘任意格子，然后使用下方按钮操作，填完信息点【计算概率】持续推演</div>
     <div class="action-bar hidden" id="operatePanel">
         <button onclick="inputNumber()">填入数字</button>
         <button onclick="setDiamond()">💎绿色钻石</button>
@@ -140,13 +135,11 @@ let R,C,totalDiamonds;
 let grid = [];
 let selectedY = -1;
 let selectedX = -1;
-let conflictCellList = []; //保存冲突坐标
 
 // 初始化棋盘：双层循环创建独立对象，彻底解决引用共享bug
 function initBoard(r=+document.getElementById('rows').value, c=+document.getElementById('cols').value, td=+document.getElementById('totalDiam').value){
     R=r;C=c;totalDiamonds=td;
     grid = [];
-    conflictCellList = [];
     for(let y=0;y<R;y++){
         let row = [];
         for(let x=0;x<C;x++){
@@ -157,13 +150,11 @@ function initBoard(r=+document.getElementById('rows').value, c=+document.getElem
     selectedY=-1;selectedX=-1;
     hideOperatePanel();
     render();
-    calcProb(); // 创建棋盘后自动计算一次
 }
 
 // 清空棋盘
 function clearBoard(){
     grid = [];
-    conflictCellList = [];
     for(let y=0;y<R;y++){
         let row = [];
         for(let x=0;x<C;x++){
@@ -174,7 +165,6 @@ function clearBoard(){
     selectedY=-1;selectedX=-1;
     hideOperatePanel();
     render();
-    calcProb(); //清空后自动计算
 }
 
 function showOperatePanel(){
@@ -192,6 +182,40 @@ function selectCell(y,x){
     render();
 }
 
+//填入数字
+function inputNumber(){
+    const num = prompt("输入相邻钻石数量：","");
+    if(num === null) return;
+    const n = parseInt(num);
+    if(!isNaN(n)){
+        grid[selectedY][selectedX].val = n;
+        grid[selectedY][selectedX].type = 0;
+        grid[selectedY][selectedX].prob = null;
+    }
+    render();
+}
+//标记钻石
+function setDiamond(){
+    grid[selectedY][selectedX].type = 1;
+    grid[selectedY][selectedX].val = 0;
+    grid[selectedY][selectedX].prob = null;
+    render();
+}
+//标记排除
+function setExclude(){
+    grid[selectedY][selectedX].type = 2;
+    grid[selectedY][selectedX].val = 0;
+    grid[selectedY][selectedX].prob = null;
+    render();
+}
+//清除当前格子
+function clearCell(){
+    grid[selectedY][selectedX].type = 0;
+    grid[selectedY][selectedX].val = 0;
+    grid[selectedY][selectedX].prob = null;
+    render();
+}
+
 // 获取一个格子的8邻域
 function getNeighbors(y,x){
     let ns=[];
@@ -205,108 +229,6 @@ function getNeighbors(y,x){
     return ns;
 }
 
-// 统计全局已标记钻石数量
-function countMarkedDiamond(){
-    let cnt = 0;
-    for(let y=0;y<R;y++){
-        for(let x=0;x<C;x++){
-            if(grid[y][x].type === 1) cnt++;
-        }
-    }
-    return cnt;
-}
-
-// 全盘冲突检测函数，返回冲突坐标数组
-function checkAllBoardConflict(){
-    let conflictList = [];
-    for(let y=0;y<R;y++){
-        for(let x=0;x<C;x++){
-            const cell = grid[y][x];
-            if(cell.val <= 0) continue;
-            const neighbors = getNeighbors(y,x);
-            let marked = 0;
-            let unknown = 0;
-            for(let p of neighbors){
-                const nc = grid[p.y][p.x];
-                if(nc.type ===1) marked++;
-                else if(nc.type ===0 && nc.val ===0) unknown++;
-            }
-            if(cell.val < marked || cell.val > marked + unknown){
-                conflictList.push({y,x});
-            }
-        }
-    }
-    return conflictList;
-}
-
-// 填入数字，增加冲突校验
-function inputNumber(){
-    const num = prompt("输入相邻钻石数量：","");
-    if(num === null) return;
-    const n = parseInt(num);
-    if(isNaN(n) || n <0){
-        alert("输入错误！请输入≥0的整数");
-        return;
-    }
-
-    const neighbors = getNeighbors(selectedY,selectedX);
-    let marked = 0;
-    let unknown = 0;
-    for(let p of neighbors){
-        const cell = grid[p.y][p.x];
-        if(cell.type === 1) marked++;
-        else if(cell.type ===0 && cell.val ===0) unknown++;
-    }
-    //冲突判断
-    if(n < marked){
-        alert(`逻辑冲突！\n周围已标记钻石：${marked}颗\n填入数字不能小于已标记钻石数量`);
-        return;
-    }
-    if(n > marked + unknown){
-        alert(`逻辑冲突！\n周围最多只能容纳 ${marked + unknown}颗钻石\n你输入的${n}颗超出上限`);
-        return;
-    }
-
-    grid[selectedY][selectedX].val = n;
-    grid[selectedY][selectedX].type = 0;
-    grid[selectedY][selectedX].prob = null;
-    render();
-    calcProb();
-}
-
-//标记钻石，增加全局钻石数量校验
-function setDiamond(){
-    //临时模拟标记，看总数是否超限
-    let tempCount = countMarkedDiamond() + 1;
-    if(tempCount > totalDiamonds){
-        alert(`全局冲突！\n设定总钻石：${totalDiamonds}颗\n标记后总数将超过上限，无法标记`);
-        return;
-    }
-    grid[selectedY][selectedX].type = 1;
-    grid[selectedY][selectedX].val = 0;
-    grid[selectedY][selectedX].prob = null;
-    render();
-    calcProb();
-}
-
-//标记排除
-function setExclude(){
-    grid[selectedY][selectedX].type = 2;
-    grid[selectedY][selectedX].val = 0;
-    grid[selectedY][selectedX].prob = null;
-    render();
-    calcProb();
-}
-
-//清除当前格子
-function clearCell(){
-    grid[selectedY][selectedX].type = 0;
-    grid[selectedY][selectedX].val = 0;
-    grid[selectedY][selectedX].prob = null;
-    render();
-    calcProb();
-}
-
 function render(){
     const tb = document.getElementById('board');
     tb.innerHTML = '';
@@ -318,7 +240,6 @@ function render(){
             td.dataset.x = x;
 
             const cell = grid[y][x];
-            let isConflictCell = conflictCellList.some(item=>item.y===y && item.x===x);
 
             if(cell.type===1){
                 td.className = 'diamond';
@@ -327,7 +248,7 @@ function render(){
                 td.className = 'empty';
                 td.textContent = '✕';
             }else if(cell.val>0){
-                td.className = isConflictCell ? 'num conflict' : 'num';
+                td.className = 'num';
                 td.textContent = cell.val;
             }else if(cell.prob!==null){
                 td.className = 'prob';
@@ -354,7 +275,12 @@ function render(){
 //【持续迭代概率计算函数】每次点击，全盘重新推算
 function calcProb(){
     //1.统计已经手动标记的钻石
-    let markedDiamonds = countMarkedDiamond();
+    let markedDiamonds = 0;
+    for(let y=0;y<R;y++){
+        for(let x=0;x<C;x++){
+            if(grid[y][x].type===1) markedDiamonds++;
+        }
+    }
     const remainDiam = totalDiamonds - markedDiamonds;
 
     //2.收集所有未知空白格子，清空旧概率
@@ -408,13 +334,6 @@ function calcProb(){
             }
         }
     }
-
-    //====全盘检测冲突，保存冲突格子坐标====
-    conflictCellList = checkAllBoardConflict();
-    if(conflictCellList.length>0){
-        alert(`⚠️ 棋盘检测到逻辑冲突！\n一共有${conflictCellList.length}处数字格子矛盾，请检查标红格子`);
-    }
-
     render();
 }
 
